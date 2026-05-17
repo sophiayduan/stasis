@@ -86,7 +86,7 @@
             startGame();
         }
     };
-    ws.onclose = () => { wsStatus.textContent = "Disconnected"; };
+    
     ws.onerror = () => { wsStatus.textContent = "Connection error"; };
     ws.onmessage = (e) => {
         if (e.data === "GAME_OVER") {
