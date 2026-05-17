@@ -13,6 +13,8 @@
 </p>
 <img src="llama.png" class="h-100 w-100 m-5 object-contain" alt="llama" />
 
+<p id="ws-status" class="text-black text-lg font-mono">Connecting...</p>
+
 <a href="index.html" class="mt-8 border-2 p-2 font-bold hover:bg-white hover:text-green-600 transition-colors">
     Go Back
 </a>
@@ -42,17 +44,22 @@
         displayElement.textContent = "No Valid Scan Data Found";
     }
 
-    const ws = new WebSocket("ws://192.168.1.100:81");
-    ws.onopen = () => console.log("WebSocket connectcededefp;ew");
+    const wsStatus = document.getElementById('ws-status');
+    const ws = new WebSocket("ws://10.121.99.121:81");
+    ws.onopen = () => {
+        wsStatus.textContent = "Connected";
+        if (sessionStorage.getItem('latest_swipe')?.length === 16) {
+            ws.send("START_GAME");
+        }
+    };
+    ws.onclose = () => { wsStatus.textContent = "Disconnected"; };
+    ws.onerror = () => { wsStatus.textContent = "Connection error"; };
     ws.onmessage = (e) => {
-        if (e.data === "GAME_OVER") alert("Game Over!");
+        wsStatus.textContent = e.data;
+        if (e.data === "GAME_OVER") wsStatus.textContent = "Game Over!";
     };
     function startGame(){
-        if(ws.readyState ===WebSocket.OPEN){
-            ws.send("START_GAME");
-        } else {
-            console.warn("websocket not ready")
-        }
+        // START_GAME is now sent in onopen to avoid a race condition
     }
 
 </script>

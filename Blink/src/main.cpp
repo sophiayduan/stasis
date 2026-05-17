@@ -2,11 +2,12 @@
 #include <WebSocketsServer.h>
 #include <WiFi.h>
 
-const char* ssid = "AH - Guest";
-const char* password = "NoTimidSouls";
-
+const char* ssid = "SM-S901W1979";
+const char* password = "xkpj1427";
 
 WebSocketsServer webSocket = WebSocketsServer(81);
+
+
 
 const int buttons[3] = {4,32,21};
 const int leds[3] = {5,33,2};
