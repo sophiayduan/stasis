@@ -14,38 +14,71 @@
 <img src="llama.png" class="h-100 w-100 m-5 object-contain" alt="llama" />
 
 <p id="ws-status" class="text-black text-lg font-mono">Connecting...</p>
+<p id="replay-hint" class="text-black text-lg font-mono hidden">Swipe card to play again</p>
+
+<input id="card-input" type="text" autocomplete="off"
+    style="position:fixed; opacity:0; pointer-events:none; width:1px; height:1px;" />
 
 <a href="index.html" class="mt-8 border-2 p-2 font-bold hover:bg-white hover:text-green-600 transition-colors">
     Go Back
 </a>
 <script type="module">
-    const latestSwipe = sessionStorage.getItem('latest_swipe');
     const displayElement = document.getElementById('card-data-display');
-    
-
     const wsStatus = document.getElementById('ws-status');
-    const ws = new WebSocket("ws://10.121.99.121:81");
-    
+    const replayHint = document.getElementById('replay-hint');
+    const cardInput = document.getElementById('card-input');
+    const ws = new WebSocket("ws://172.20.10.3:81");
+
+    let readingIntervalId = null;
+
     function startReadingSequence(){
-        if (latestSwipe && latestSwipe.length === 16) {
-    const digits = latestSwipe.split('');
-    let displayedText = digits.shift();
-    displayElement.textContent = displayedText;
-    
-    const intervalId = setInterval(() => {
-        if (digits.length > 0) {
-        const nextDigit = digits.shift();
-        displayedText += nextDigit;
-        displayElement.textContent = displayedText;
+        const swipe = sessionStorage.getItem('latest_swipe');
+        if (swipe && swipe.length === 16) {
+            if (readingIntervalId) clearInterval(readingIntervalId);
+            const digits = swipe.split('');
+            let displayedText = digits.shift();
+            displayElement.textContent = displayedText;
+            readingIntervalId = setInterval(() => {
+                if (digits.length > 0) {
+                    displayedText += digits.shift();
+                    displayElement.textContent = displayedText;
+                } else {
+                    clearInterval(readingIntervalId);
+                    readingIntervalId = null;
+                }
+            }, 3000);
         } else {
-        clearInterval(intervalId);
+            displayElement.textContent = "No Valid Scan Data Found";
         }
-    }, 3000);
-    } else {
-        displayElement.textContent = "No Valid Scan Data Found";
     }
 
+    function startGame(){
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send("START_GAME");
+        } else {
+            console.warn("websocket not ready");
+        }
     }
+
+    function enableReplay(){
+        replayHint.classList.remove('hidden');
+        cardInput.focus();
+    }
+
+    cardInput.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        const cardData = cardInput.value.trim();
+        cardInput.value = '';
+        if (!cardData) return;
+        const match = cardData.match(/\d{16}/);
+        if (!match) return;
+        sessionStorage.setItem('latest_swipe', match[0]);
+        replayHint.classList.add('hidden');
+        displayElement.textContent = '';
+        if (readingIntervalId) { clearInterval(readingIntervalId); readingIntervalId = null; }
+        startGame();
+    });
+
     ws.onopen = () => {
         console.log('Connected to ESP32');
         wsStatus.textContent = "Connected";
@@ -56,22 +89,15 @@
     ws.onclose = () => { wsStatus.textContent = "Disconnected"; };
     ws.onerror = () => { wsStatus.textContent = "Connection error"; };
     ws.onmessage = (e) => {
-        if (e.data === "GAME_OVER"){
+        if (e.data === "GAME_OVER") {
             wsStatus.textContent = "Game Over!";
-        } else if(e.data === "SPEED_UP"){
-                alert("speed");
-        }else if(e.data ==="START_READING"){
-                startReadingSequence();
+            enableReplay();
+        } else if (e.data === "SPEED_UP") {
+            alert("speed");
+        } else if (e.data === "START_READING") {
+            startReadingSequence();
         }
-    }
-    function startGame(){
-        if(ws.readyState ===WebSocket.OPEN){
-            ws.send("START_GAME");
-        } else {
-            console.warn("websocket not ready")
-        }
-    }
-    
+    };
 </script>
 </body>
 </html>

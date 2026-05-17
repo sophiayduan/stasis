@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <WebSocketsServer.h>
 #include <WiFi.h>
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 const char* ssid = "SM-S901W1979";
 const char* password = "xkpj1427";
@@ -51,6 +53,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 }
 
 void setup(){
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
   Serial.begin(115200);
   delay(1000);
 
