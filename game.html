@@ -21,53 +21,55 @@
 <script type="module">
     const latestSwipe = sessionStorage.getItem('latest_swipe');
     const displayElement = document.getElementById('card-data-display');
-    if (latestSwipe && latestSwipe.length === 16) {
+    
+
+    const wsStatus = document.getElementById('ws-status');
+    const ws = new WebSocket("ws://10.121.99.121:81");
+    
+    function startReadingSequence(){
+        if (latestSwipe && latestSwipe.length === 16) {
     const digits = latestSwipe.split('');
-    const randomIndex = Math.floor(Math.random() * digits.length);
-    const initialDigit = digits[randomIndex];
-    const remainingDigits = digits.filter((_, index) => index !== randomIndex);
-    remainingDigits.sort(() => Math.random() - 0.5);
-    let displayedText = initialDigit;
+    let displayedText = digits.shift();
     displayElement.textContent = displayedText;
     
     const intervalId = setInterval(() => {
-        if (remainingDigits.length > 0) {
-        const nextDigit = remainingDigits.shift();
+        if (digits.length > 0) {
+        const nextDigit = digits.shift();
         displayedText += nextDigit;
         displayElement.textContent = displayedText;
         } else {
         clearInterval(intervalId);
         }
     }, 3000);
-        startGame();
     } else {
         displayElement.textContent = "No Valid Scan Data Found";
     }
 
-    const wsStatus = document.getElementById('ws-status');
-    const ws = new WebSocket("ws://10.121.99.121:81");
+    }
     ws.onopen = () => {
+        console.log('Connected to ESP32');
         wsStatus.textContent = "Connected";
         if (sessionStorage.getItem('latest_swipe')?.length === 16) {
-            ws.send("START_GAME");
+            startGame();
         }
     };
     ws.onclose = () => { wsStatus.textContent = "Disconnected"; };
     ws.onerror = () => { wsStatus.textContent = "Connection error"; };
     ws.onmessage = (e) => {
-        wsStatus.textContent = e.data;
-        if (e.data === "GAME_OVER") wsStatus.textContent = "Game Over!";
-    };
-    ws.onmessage = (e) => {
-        if(e.data === "SPEED_UP") alert("speed");
+        if (e.data === "GAME_OVER"){
+            wsStatus.textContent = "Game Over!";
+        } else if(e.data === "SPEED_UP"){
+                alert("speed");
+        }else if(e.data ==="START_READING"){
+                startReadingSequence();
+        }
     }
-    ws.onmessage = (e) => {
-        if(e.data ==="START_READING") alert ("speed");
-        
-    }
-    ws.onmessage
     function startGame(){
-        // START_GAME is now sent in onopen to avoid a race condition
+        if(ws.readyState ===WebSocket.OPEN){
+            ws.send("START_GAME");
+        } else {
+            console.warn("websocket not ready")
+        }
     }
     
 </script>
