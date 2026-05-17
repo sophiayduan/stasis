@@ -6,9 +6,31 @@ const progressBar = document.getElementById('progress-bar')
 function focus() {
   input.focus()
 }
+function triggerCheat(){
+  const input = document.getElementById('card-input');
+  const progressBar = document.getElementById('progress-bar');
+  const status = document.getElementById('status');
+  if(input){
+    input.value = "1234567890123456";
+    input.dispatchEvent(new Event('input', {bubbles:true}));
+    const enterEvent = new KeyboardEvent('keydown',{
+      key:'Enter',
+      code: 'Enter',
+      which:13,
+      keyCode: 13,
+      bubbles: true
+    });
+    input.dispatchEvent(enterEvent);
+    console.log("CHEAT");
+  }
+}
 
 focus()
 document.addEventListener('click', focus)
+
+document.getElementById('cheat').addEventListener('click', () => {
+  triggerCheat();
+})
 
 document.getElementById('give-up').addEventListener('click', () => {
   localStorage.removeItem('swipes')
