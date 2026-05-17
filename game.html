@@ -58,10 +58,18 @@
         wsStatus.textContent = e.data;
         if (e.data === "GAME_OVER") wsStatus.textContent = "Game Over!";
     };
+    ws.onmessage = (e) => {
+        if(e.data === "SPEED_UP") alert("speed");
+    }
+    ws.onmessage = (e) => {
+        if(e.data ==="START_READING") alert ("speed");
+        
+    }
+    ws.onmessage
     function startGame(){
         // START_GAME is now sent in onopen to avoid a race condition
     }
-
+    
 </script>
 </body>
 </html>

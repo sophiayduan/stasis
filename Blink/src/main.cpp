@@ -87,10 +87,12 @@ void loop() {
     Serial.println("SPEED UP READING NUMBERS");
     reached[1] = true;
     timeout = 1000;
+    webSocket.broadcastTXT("SPEED_UP");
   } else if(currentMillis-gameStart>=10000 && score<5 && !reached[2]){
     Serial.println("START READING CARD NUMBERS");
     reached[2] = true;
     timeout = 2000;
+    webSocket.broadcastTXT("START_READING");
   }
   if(currentMillis-previousMillis>=interval){
     previousMillis = currentMillis;
