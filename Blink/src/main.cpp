@@ -36,31 +36,12 @@ const long cooldown = 300;
 int ran = random(0, 3);
 void playAudio(const int16_t* audioArray, uint32_t totalSize) {
   const uint32_t headerOffset = 78;
-  const uint8_t* data = (const uint8_t*)audioArray;
-  const uint32_t byteOffset = headerOffset * 2;
-  const uint32_t totalBytes = totalSize * 2;
+  const uint8_t* data = ((const uint8_t*)audioArray) + (headerOffset * 2);
+  uint32_t totalBytes = (totalSize * 2) - (headerOffset * 2);
 
   i2s_start(I2S_NUM_0);
   size_t bytes_written;
-  const int BUF_FRAMES = 512;
-  int16_t writeBuf[BUF_FRAMES * 2];
-  int bufIdx = 0;
-
-  for (uint32_t i = byteOffset; i < totalBytes - 1; i += 2) {
-    uint8_t lo = pgm_read_byte(&data[i]);
-    uint8_t hi = pgm_read_byte(&data[i + 1]);
-    int16_t sample = (int16_t)(lo | (hi << 8));
-    writeBuf[bufIdx++] = sample;
-    writeBuf[bufIdx++] = sample;
-    if (bufIdx >= BUF_FRAMES * 2) {
-      i2s_write(I2S_NUM_0, writeBuf, sizeof(writeBuf), &bytes_written, portMAX_DELAY);
-      bufIdx = 0;
-    }
-  }
-  if (bufIdx > 0) {
-    i2s_write(I2S_NUM_0, writeBuf, bufIdx * sizeof(int16_t), &bytes_written, portMAX_DELAY);
-  }
-
+  i2s_write(I2S_NUM_0, data, totalBytes, &bytes_written, portMAX_DELAY);
   i2s_zero_dma_buffer(I2S_NUM_0);
   i2s_stop(I2S_NUM_0);
 }
@@ -108,6 +89,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       previousMillis = millis();
       gameStarted = true;
       ran = random(0,3);
+      xTaskCreatePinnedToCore(audioTask, "audio", 8192, NULL, 5, &audioTaskHandle, 0);
     }
   }
 }
@@ -196,7 +178,7 @@ void loop() {
     previousMillis = currentMillis;
     ran = random(0, 3);
     if(!audioPlaying){
-      xTaskCreatePinnedToCore(audioTask, "audio", 8192, NULL, 2, &audioTaskHandle, 1);
+
     }
     digitalWrite(leds[ran], HIGH);
     ledOn[ran] = true;
