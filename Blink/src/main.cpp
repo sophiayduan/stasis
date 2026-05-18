@@ -36,15 +36,20 @@ const long cooldown = 300;
 int ran = random(0, 3);
 void playAudio(const int16_t* audioArray, uint32_t totalSize) {
   const uint32_t headerOffset = 78;
+  const uint8_t* data = (const uint8_t*)audioArray;
+  const uint32_t byteOffset = headerOffset * 2;
+  const uint32_t totalBytes = totalSize * 2;
+
   i2s_start(I2S_NUM_0);
   size_t bytes_written;
-
   const int BUF_FRAMES = 512;
   int16_t writeBuf[BUF_FRAMES * 2];
   int bufIdx = 0;
 
-  for (uint32_t i = headerOffset; i < totalSize - 1; i += 2) {
-    int16_t sample = (int16_t)(pgm_read_word(&audioArray[i]) | (pgm_read_word(&audioArray[i+1]) << 8));
+  for (uint32_t i = byteOffset; i < totalBytes - 1; i += 2) {
+    uint8_t lo = pgm_read_byte(&data[i]);
+    uint8_t hi = pgm_read_byte(&data[i + 1]);
+    int16_t sample = (int16_t)(lo | (hi << 8));
     writeBuf[bufIdx++] = sample;
     writeBuf[bufIdx++] = sample;
     if (bufIdx >= BUF_FRAMES * 2) {
