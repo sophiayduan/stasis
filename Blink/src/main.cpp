@@ -4,8 +4,8 @@
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 
-const char* ssid = "SM-S901W1979";
-const char* password = "xkpj1427";
+const char* ssid = "bingus";
+const char* password = "dinosaur399";
 
 WebSocketsServer webSocket = WebSocketsServer(81);
 
@@ -48,6 +48,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       previousMillis = millis();
       gameStarted = true;
       ran = random(0,3);
+      webSocket.broadcastTXT("SCORE:0");
     }
   }
 }
@@ -109,6 +110,7 @@ void loop() {
       score--;
       Serial.print("Missed, Score: ");
       Serial.println(score);
+      webSocket.broadcastTXT("SCORE:" + String(score));
     }
   }
   for(int i=0; i<3; i++){
@@ -119,6 +121,7 @@ void loop() {
         score++;
         Serial.print("Score: ");
         Serial.println(score);
+        webSocket.broadcastTXT("SCORE:" + String(score));
       }
     } 
   }

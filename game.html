@@ -6,27 +6,46 @@
 <title>Success</title>
 <link rel="stylesheet" href="/src/style.css" />
 </head>
-<body class="w-full h-screen bg-white flex flex-col items-center justify-center text-white p-4">
+<body class="w-full h-screen bg-white flex flex-col items-center justify-center text-white p-4 relative overflow-hidden">
+    <p id="ws-status" class="absolute top-4 left-4 text-black text-lg font-mono bg-blue-400 p-2">Connecting...</p>
+    <span id="card-data-display" class="text-[90vh] text-black font-semibold">7</span>
+<!-- <img src="llama.png" class="h-100 w-100 m-5 object-contain" alt="llama" /> -->
+    <a href="index.html" class="absolute top-4 right-4 border-2 p-2 font-bold bg-white text-green-600 transition-colors">
+        Go Back
+    </a>
+    <ul class="absolute left-4 top-1/2 -translate-y-1/2 h-200 w-40  border-2 border-black grid grid-rows-14 grid-cols-1 p-2 gap-2">
+        <li class="w-full h-full bg-blue-400 rounded-xs"></li>
+        <li class="w-full h-full bg-blue-200 rounded-xs"></li>
+        <li class="w-full h-full bg-green-300 rounded-xs"></li>
+        <li class="w-full h-full bg-green-500 rounded-xs"></li>
+        <li class="w-full h-full bg-yellow-600 rounded-xs"></li>
+        <li class="w-full h-full bg-yellow-400 rounded-xs"></li>        
+        <li class="w-full h-full bg-amber-400 rounded-xs"></li>
+        <li class="w-full h-full bg-orange-400 rounded-xs"></li>
+        <li class="w-full h-full bg-orange-500 rounded-xs"></li>
+        <li class="w-full h-full bg-red-400 rounded-xs"></li>
+        <li class="w-full h-full bg-red-500 rounded-xs"></li>
+        <li class="w-full h-full bg-red-600 rounded-xs"></li>
+        <li class="w-full h-full bg-red-800 rounded-xs"></li>
+        <li class="w-full h-full bg-red-900 rounded-xs"></li>
 
-<p class="mt-6 text-5xl tracking-wide bg-black/20 px-8 py-5 rounded font-mono">
-    <span id="card-data-display">Loading...</span>
-</p>
-<img src="llama.png" class="h-100 w-100 m-5 object-contain" alt="llama" />
 
-<p id="ws-status" class="text-black text-lg font-mono">Connecting...</p>
+
+    </ul>
+    <p id="digit-tracker" class="absolute right-4 bottom-4 text-black font-semibold text-2xl tracking-wide font-mono"></p>
+
 <p id="replay-hint" class="text-black text-lg font-mono hidden">Swipe card to play again</p>
 
 <input id="card-input" type="text" autocomplete="off"
     style="position:fixed; opacity:0; pointer-events:none; width:1px; height:1px;" />
 
-<a href="index.html" class="mt-8 border-2 p-2 font-bold hover:bg-white hover:text-green-600 transition-colors">
-    Go Back
-</a>
+
 <script type="module">
     const displayElement = document.getElementById('card-data-display');
     const wsStatus = document.getElementById('ws-status');
     const replayHint = document.getElementById('replay-hint');
     const cardInput = document.getElementById('card-input');
+    const digitTracker = document.getElementById('digit-tracker');
     const ws = new WebSocket("ws://172.20.10.3:81");
 
     let readingIntervalId = null;
@@ -36,12 +55,21 @@
         if (swipe && swipe.length === 16) {
             if (readingIntervalId) clearInterval(readingIntervalId);
             const digits = swipe.split('');
-            let displayedText = digits.shift();
-            displayElement.textContent = displayedText;
+            const revealed = Array(16).fill('_');
+            let idx = 0;
+
+            function revealNext() {
+                const digit = digits[idx];
+                revealed[idx] = digit;
+                displayElement.textContent = digit;
+                digitTracker.textContent = revealed.join('');
+                idx++;
+            }
+
+            revealNext();
             readingIntervalId = setInterval(() => {
-                if (digits.length > 0) {
-                    displayedText += digits.shift();
-                    displayElement.textContent = displayedText;
+                if (idx < digits.length) {
+                    revealNext();
                 } else {
                     clearInterval(readingIntervalId);
                     readingIntervalId = null;
@@ -75,6 +103,7 @@
         sessionStorage.setItem('latest_swipe', match[0]);
         replayHint.classList.add('hidden');
         displayElement.textContent = '';
+        digitTracker.textContent = '';
         if (readingIntervalId) { clearInterval(readingIntervalId); readingIntervalId = null; }
         startGame();
     });
@@ -87,17 +116,36 @@
         }
     };
     
+    function updateBackground(score) {
+        const t = Math.min(Math.max(-score / 15, 0), 1);
+        let r, g, b;
+        if (t < 0.5) {
+            const s = t / 0.5;
+            r = 255; g = Math.round(255 * (1 - s)); b = Math.round(255 * (1 - s));
+        } else if (t < 0.75) {
+            const s = (t - 0.5) / 0.25;
+            r = Math.round(255 - s * (255 - 139)); g = 0; b = 0;
+        } else {
+            const s = (t - 0.75) / 0.25;
+            r = Math.round(139 * (1 - s)); g = 0; b = 0;
+        }
+        document.body.style.backgroundColor = `rgb(${r},${g},${b})`;
+    }
+
     ws.onerror = () => { wsStatus.textContent = "Connection error"; };
     ws.onmessage = (e) => {
         if (e.data === "GAME_OVER") {
             wsStatus.textContent = "Game Over!";
             enableReplay();
         } else if (e.data === "SPEED_UP") {
-            alert("speed");
+            // alert("speed");
         } else if (e.data === "START_READING") {
             startReadingSequence();
+        } else if (e.data.startsWith("SCORE:")) {
+            updateBackground(parseInt(e.data.slice(6)));
         }
     };
 </script>
 </body>
+
 </html>
