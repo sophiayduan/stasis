@@ -6,8 +6,8 @@
 #include "driver/i2s.h"
 #include "Arena_Hall_1.h"
 
-const char* ssid = "SM-S901W1979";
-const char* password = "xkpj1427";
+const char* ssid = "iPhone";
+const char* password = "aaaaaaaa";
 
 WebSocketsServer webSocket = WebSocketsServer(81);
 
@@ -15,7 +15,7 @@ WebSocketsServer webSocket = WebSocketsServer(81);
 const int I2S_LRC = 14;
 const int I2S_BCLK = 12;
 const int I2S_DATA = 13;
-const uint32_t total_samples = 99684; 
+const uint32_t total_samples = 99684;
 
 const int buttons[3] = {4,32,21};
 const int leds[3] = {5,33,2};
@@ -24,7 +24,7 @@ const int interval = 1000;
 int timeout = 3000;
 long gameStart = 0;
 bool gameStarted = false;
-bool ledOn[3] = {false, false, false}
+bool ledOn[3] = {false, false, false};
 unsigned long ran_go = 0;
 unsigned long previousMillis = 0;
 unsigned long lastPress[3] = {0,0,0};
@@ -34,8 +34,22 @@ unsigned long ledOnTime[3] = {0,0,0};
 bool reached[3] = {false,false, false};
 const long cooldown = 300;
 int ran = random(0, 3);
+void playAudio(const int16_t* audioArray, uint32_t totalSize) {
+  const uint32_t headerOffset = 78;  // ← added semicolon
+  i2s_start(I2S_NUM_0);
+  size_t bytes_written;
+
+  for (uint32_t i = headerOffset; i < totalSize - 1; i += 2) {
+    int16_t sample = (int16_t)(pgm_read_word(&audioArray[i]) | (pgm_read_word(&audioArray[i+1]) << 8));
+    int16_t stereo[2] = {sample, sample};
+    i2s_write(I2S_NUM_0, stereo, sizeof(stereo), &bytes_written, portMAX_DELAY);
+  }
+
+  i2s_zero_dma_buffer(I2S_NUM_0);
+  i2s_stop(I2S_NUM_0);
+}
 void playTest(int frequency, int durationMs){
-  i2s_start(I2S_NUM_0); 
+  i2s_start(I2S_NUM_0);
   
   size_t bytes_written;
   int sample_rate = 44100;
@@ -81,7 +95,11 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
     }
   }
 }
-
+// TaskHandle_t audioTaskHandle = NULL;
+// void audioTask(void*parameter){
+//   playAudio(Arena_Hall_1_, total_samples);
+//   vTaskDelete(NULL);
+// }
 void setup(){
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
   Serial.begin(115200);
@@ -118,6 +136,9 @@ void setup(){
   Serial.println("Testing Speaker hardware...");
   playTest(880, 1000); 
   delay(200);
+  Serial.println("About to play audio...");
+  playAudio(Arena_Hall_1_, total_samples);
+  Serial.println("Audio done");
 
   WiFi.begin(ssid, password);
   while(WiFi.status() !=WL_CONNECTED){
@@ -155,13 +176,18 @@ void loop() {
   }
   if(currentMillis-previousMillis>=interval){
     previousMillis = currentMillis;
+    // turn off all first
+    for(int i=0; i<3; i++){
+        digitalWrite(leds[i], LOW);
+        ledOn[i] = false;
+    }
     ran = random(0, 3);
     digitalWrite(leds[ran], HIGH);
     ledOn[ran] = true;
     ledOnTime[ran] = currentMillis;
-  }
+}
   for(int i=0; i<3; i++){
-    if(digitalRead(leds[i])==HIGH && currentMillis-ledOnTime[i] >=timeout){
+    if(ledOn[i] && currentMillis-ledOnTime[i] >=timeout){
       digitalWrite(leds[i], LOW);
       ledOn[i] = false;
       score--;
