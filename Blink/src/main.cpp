@@ -36,12 +36,28 @@ const long cooldown = 300;
 int ran = random(0, 3);
 void playAudio(const int16_t* audioArray, uint32_t totalSize) {
   const uint32_t headerOffset = 78;
-  const uint8_t* data = ((const uint8_t*)audioArray) + (headerOffset * 2);
-  uint32_t totalBytes = (totalSize * 2) - (headerOffset * 2);
-
   i2s_start(I2S_NUM_0);
   size_t bytes_written;
-  i2s_write(I2S_NUM_0, data, totalBytes, &bytes_written, portMAX_DELAY);
+
+  const int BUF_SIZE = 512;
+  int16_t buf[BUF_SIZE * 2];
+  int bufIdx = 0;
+
+  for (uint32_t i = headerOffset; i < totalSize - 1; i += 2) {
+    uint8_t lo = (uint8_t)(audioArray[i]);
+    uint8_t hi = (uint8_t)(audioArray[i + 1]);
+    int16_t sample = (int16_t)((hi << 8) | lo);
+    buf[bufIdx++] = sample;
+    buf[bufIdx++] = sample;
+    if (bufIdx >= BUF_SIZE * 2) {
+      i2s_write(I2S_NUM_0, buf, sizeof(buf), &bytes_written, portMAX_DELAY);
+      bufIdx = 0;
+    }
+  }
+  if (bufIdx > 0) {
+    i2s_write(I2S_NUM_0, buf, bufIdx * sizeof(int16_t), &bytes_written, portMAX_DELAY);
+  }
+
   i2s_zero_dma_buffer(I2S_NUM_0);
   i2s_stop(I2S_NUM_0);
 }
