@@ -5,9 +5,10 @@
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 #include "driver/i2s.h"
-#include "Arena_Hall_1.h"
+// #include "Arena_Hall_0.h"
+// #include "Arena_Hall_1.h"
 #include "Arena_Hall_2.h"
-#include "Arena_Hall_3.h"
+// #include "Arena_Hall_3.h"
 #include "Arena_Hall_4.h"
 #include "Arena_Hall_5.h"
 #include "Arena_Hall_6.h"
@@ -17,9 +18,9 @@
 
 const int16_t* digitAudio[10] = {
   nullptr,
-  Arena_Hall_1,
+  // Arena_Hall_1,
   Arena_Hall_2,
-  Arena_Hall_3,
+  // Arena_Hall_3,
   Arena_Hall_4,
   Arena_Hall_5,
   Arena_Hall_6,
@@ -27,7 +28,7 @@ const int16_t* digitAudio[10] = {
   Arena_Hall_8,
   Arena_Hall_9
 };
-const uint32_t digitAudioSize[10] = { 249678, 99684, 331598, 331598, 200526, 233294, 266062, 216910, 315214, 282446 };
+const uint32_t digitAudioSize[8] = {165838, 100302, 315214, 133070, 108494, 157646, 141262 };
 
 const char* ssid = "bingus";
 const char* password = "dinosaur399";
@@ -130,7 +131,7 @@ void playTest(int frequency, int durationMs) {
 
 void audioTask(void* parameter) {
   audioPlaying = true;
-  playAudio(Arena_Hall_1, total_samples);
+  // playAudio(Arena_Hall_2, total_samples);
   audioPlaying = false;
   audioTaskHandle = NULL;
   vTaskDelete(NULL);
