@@ -6,23 +6,28 @@
 #include "soc/rtc_cntl_reg.h"
 #include "driver/i2s.h"
 #include "Arena_Hall_1.h"
+#include "Arena_Hall_2.h"
+#include "Arena_Hall_3.h"
+#include "Arena_Hall_4.h"
+#include "Arena_Hall_5.h"
+#include "Arena_Hall_6.h"
+#include "Arena_Hall_7.h"
+#include "Arena_Hall_8.h"
+#include "Arena_Hall_9.h"
 
-// --- Digit audio files ---
-// To add a digit: uncomment its line and fill in the array entries below
-// #include "digit_0.h"
-// #include "digit_1.h"
-// #include "digit_2.h"
-// #include "digit_3.h"
-// #include "digit_4.h"
-// #include "digit_5.h"
-// #include "digit_6.h"
-// #include "digit_7.h"
-// #include "digit_8.h"
-// #include "digit_9.h"
-
-const int16_t* digitAudio[10]     = { nullptr, nullptr, nullptr, nullptr, nullptr,
-                                      nullptr, nullptr, nullptr, nullptr, nullptr };
-const uint32_t digitAudioSize[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+const int16_t* digitAudio[10] = {
+  nullptr,
+  Arena_Hall_1,
+  Arena_Hall_2,
+  Arena_Hall_3,
+  Arena_Hall_4,
+  Arena_Hall_5,
+  Arena_Hall_6,
+  Arena_Hall_7,
+  Arena_Hall_8,
+  Arena_Hall_9
+};
+const uint32_t digitAudioSize[10] = { 249678, 99684, 331598, 331598, 200526, 233294, 266062, 216910, 315214, 282446 };
 
 const char* ssid = "bingus";
 const char* password = "dinosaur399";
@@ -89,7 +94,7 @@ void playAudio(const int16_t* audioArray, uint32_t totalSize) {
     uint8_t lo = (uint8_t)(audioArray[i]);
     uint8_t hi = (uint8_t)(audioArray[i + 1]);
     int16_t sample = (int16_t)((hi << 8) | lo);
-    sample = (int16_t)constrain((int32_t)sample * 8, -32768, 32767);
+    // NO amplitude boost - removed to prevent distortion
     buf[bufIdx++] = sample;
     buf[bufIdx++] = sample;
     if (bufIdx >= BUF_SIZE * 2) {
@@ -125,7 +130,7 @@ void playTest(int frequency, int durationMs) {
 
 void audioTask(void* parameter) {
   audioPlaying = true;
-  playAudio(Arena_Hall_1_, total_samples);
+  playAudio(Arena_Hall_1, total_samples);
   audioPlaying = false;
   audioTaskHandle = NULL;
   vTaskDelete(NULL);
@@ -157,11 +162,10 @@ void digitTask(void* parameter) {
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
   if (type == WStype_TEXT) {
     String message = String((char*)(payload));
-    if (message.startsWith("CARD:") && gameStarted && digitTaskHandle == NULL) {
-      String digits = message.substring(5);
+    if (message.length() > 0 && isDigit(message[0]) && gameStarted && digitTaskHandle == NULL) {
       digitQueueLen = 0;
-      for (int i = 0; i < (int)digits.length() && digitQueueLen < 20; i++) {
-        char c = digits.charAt(i);
+      for (int i = 0; i < (int)message.length() && digitQueueLen < 20; i++) {
+        char c = message.charAt(i);
         if (c >= '0' && c <= '9') digitQueue[digitQueueLen++] = c - '0';
       }
       if (digitQueueLen > 0)
@@ -243,7 +247,6 @@ void loop() {
   if (gameStarted) {
     unsigned long currentMillis = millis();
 
-    // --- Game timer events ---
     if (currentMillis - gameStart >= 30000 && !reached[0]) {
       Serial.println("YOU LOSE");
       reached[0] = true;
@@ -264,7 +267,6 @@ void loop() {
       webSocket.broadcastTXT("START_READING");
     }
 
-    // --- Light a random strip every interval ---
     if (currentMillis - previousMillis >= interval) {
       previousMillis = currentMillis;
       ran = random(0, NUM_STRIPS);
@@ -272,7 +274,6 @@ void loop() {
       ledOnTime[ran] = currentMillis;
     }
 
-    // --- Timeout: turn off strip and penalize ---
     for (int i = 0; i < NUM_STRIPS; i++) {
       if (ledActive[i] && currentMillis - ledOnTime[i] >= timeout) {
         setStrip(i, false);
@@ -282,7 +283,6 @@ void loop() {
       }
     }
 
-    // --- Button press: check and score ---
     for (int i = 0; i < NUM_STRIPS; i++) {
       if (digitalRead(buttons[i]) == LOW && currentMillis - lastPress[i] >= cooldown) {
         lastPress[i] = currentMillis;
