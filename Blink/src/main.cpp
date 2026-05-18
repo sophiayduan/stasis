@@ -87,6 +87,17 @@ void playTest(int frequency, int durationMs){
   i2s_stop(I2S_NUM_0);
 }
 
+TaskHandle_t audioTaskHandle = NULL;
+volatile bool audioPlaying = false;
+
+void audioTask(void*parameter){
+  audioPlaying = true;
+  playAudio(Arena_Hall_1_, total_samples);
+  audioPlaying = false;
+  audioTaskHandle = NULL;
+  vTaskDelete(NULL);
+}
+
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length){
   if(type==WStype_TEXT){
     String message = String((char*)(payload));
@@ -108,16 +119,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       xTaskCreatePinnedToCore(audioTask, "audio", 8192, NULL, 5, &audioTaskHandle, 0);
     }
   }
-}
-TaskHandle_t audioTaskHandle = NULL;
-volatile bool audioPlaying = false;
-
-void audioTask(void*parameter){
-  audioPlaying = true;
-  playAudio(Arena_Hall_1_, total_samples);
-  audioPlaying = false;
-  audioTaskHandle = NULL;
-  vTaskDelete(NULL);
 }
 void setup(){
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
