@@ -35,14 +35,25 @@ bool reached[3] = {false,false, false};
 const long cooldown = 300;
 int ran = random(0, 3);
 void playAudio(const int16_t* audioArray, uint32_t totalSize) {
-  const uint32_t headerOffset = 78;  // ← added semicolon
+  const uint32_t headerOffset = 78;
   i2s_start(I2S_NUM_0);
   size_t bytes_written;
 
+  const int BUF_FRAMES = 512;
+  int16_t writeBuf[BUF_FRAMES * 2];
+  int bufIdx = 0;
+
   for (uint32_t i = headerOffset; i < totalSize - 1; i += 2) {
     int16_t sample = (int16_t)(pgm_read_word(&audioArray[i]) | (pgm_read_word(&audioArray[i+1]) << 8));
-    int16_t stereo[2] = {sample, sample};
-    i2s_write(I2S_NUM_0, stereo, sizeof(stereo), &bytes_written, portMAX_DELAY);
+    writeBuf[bufIdx++] = sample;
+    writeBuf[bufIdx++] = sample;
+    if (bufIdx >= BUF_FRAMES * 2) {
+      i2s_write(I2S_NUM_0, writeBuf, sizeof(writeBuf), &bytes_written, portMAX_DELAY);
+      bufIdx = 0;
+    }
+  }
+  if (bufIdx > 0) {
+    i2s_write(I2S_NUM_0, writeBuf, bufIdx * sizeof(int16_t), &bytes_written, portMAX_DELAY);
   }
 
   i2s_zero_dma_buffer(I2S_NUM_0);
@@ -60,7 +71,7 @@ void playTest(int frequency, int durationMs){
   if (period == 0) return; 
 
   for(int i = 0; i < buffer_size; i++){
-    dummy_samples[i] = ((i % period) < (period / 2)) ? 1500 : -1500;
+    dummy_samples[i] = ((i % period) < (period / 2)) ? 2000 : -2000;
   }
 
   int total_samples_needed = (sample_rate * durationMs) / 1000;
@@ -95,11 +106,16 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
     }
   }
 }
-// TaskHandle_t audioTaskHandle = NULL;
-// void audioTask(void*parameter){
-//   playAudio(Arena_Hall_1_, total_samples);
-//   vTaskDelete(NULL);
-// }
+TaskHandle_t audioTaskHandle = NULL;
+volatile bool audioPlaying = false;
+
+void audioTask(void*parameter){
+  audioPlaying = true;
+  playAudio(Arena_Hall_1_, total_samples);
+  audioPlaying = false;
+  audioTaskHandle = NULL;
+  vTaskDelete(NULL);
+}
 void setup(){
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
   Serial.begin(115200);
@@ -119,7 +135,7 @@ void setup(){
       .communication_format = I2S_COMM_FORMAT_STAND_I2S,
       .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
       .dma_buf_count = 8,
-      .dma_buf_len = 64,
+      .dma_buf_len = 1024,
       .use_apll = false
   };
 
@@ -136,10 +152,7 @@ void setup(){
   Serial.println("Testing Speaker hardware...");
   playTest(880, 1000); 
   delay(200);
-  Serial.println("About to play audio...");
-  playAudio(Arena_Hall_1_, total_samples);
-  Serial.println("Audio done");
-
+  
   WiFi.begin(ssid, password);
   while(WiFi.status() !=WL_CONNECTED){
     delay(500);
@@ -176,16 +189,14 @@ void loop() {
   }
   if(currentMillis-previousMillis>=interval){
     previousMillis = currentMillis;
-    // turn off all first
-    for(int i=0; i<3; i++){
-        digitalWrite(leds[i], LOW);
-        ledOn[i] = false;
-    }
     ran = random(0, 3);
+    if(!audioPlaying){
+      xTaskCreatePinnedToCore(audioTask, "audio", 8192, NULL, 2, &audioTaskHandle, 1);
+    }
     digitalWrite(leds[ran], HIGH);
     ledOn[ran] = true;
     ledOnTime[ran] = currentMillis;
-}
+  }
   for(int i=0; i<3; i++){
     if(ledOn[i] && currentMillis-ledOnTime[i] >=timeout){
       digitalWrite(leds[i], LOW);
