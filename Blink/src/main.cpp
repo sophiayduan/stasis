@@ -6,6 +6,26 @@
 #include "driver/i2s.h"
 #include "Arena_Hall_1.h"
 
+// --- Digit audio files ---
+// To add a digit: uncomment its line and fill in the array entries below
+// #include "digit_0.h"
+// #include "digit_1.h"
+// #include "digit_2.h"
+// #include "digit_3.h"
+// #include "digit_4.h"
+// #include "digit_5.h"
+// #include "digit_6.h"
+// #include "digit_7.h"
+// #include "digit_8.h"
+// #include "digit_9.h"
+
+const int16_t* digitAudio[10]    = { nullptr, nullptr, nullptr, nullptr, nullptr,
+                                     nullptr, nullptr, nullptr, nullptr, nullptr };
+const uint32_t digitAudioSize[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+// Example — once you have digit_3.h:
+//   digitAudio[3]     = digit_3_;
+//   digitAudioSize[3] = digit_3_SIZE;
+
 const char* ssid = "iPhone";
 const char* password = "aaaaaaaa";
 
@@ -44,9 +64,11 @@ void playAudio(const int16_t* audioArray, uint32_t totalSize) {
   int bufIdx = 0;
 
   for (uint32_t i = headerOffset; i < totalSize - 1; i += 2) {
+    if (stopAudioFlag) break;
     uint8_t lo = (uint8_t)(audioArray[i]);
     uint8_t hi = (uint8_t)(audioArray[i + 1]);
     int16_t sample = (int16_t)((hi << 8) | lo);
+    sample = (int16_t)constrain((int32_t)sample * 8, -32768, 32767);
     buf[bufIdx++] = sample;
     buf[bufIdx++] = sample;
     if (bufIdx >= BUF_SIZE * 2) {
@@ -89,6 +111,12 @@ void playTest(int frequency, int durationMs){
 
 TaskHandle_t audioTaskHandle = NULL;
 volatile bool audioPlaying = false;
+volatile bool stopAudioFlag = false;
+
+const int digitFreq[10] = {523, 587, 659, 698, 784, 880, 988, 1047, 1175, 1319};
+int digitQueue[20];
+int digitQueueLen = 0;
+TaskHandle_t digitTaskHandle = NULL;
 
 void audioTask(void*parameter){
   audioPlaying = true;
@@ -98,10 +126,42 @@ void audioTask(void*parameter){
   vTaskDelete(NULL);
 }
 
+void playDigit(int d) {
+  if (d < 0 || d > 9) return;
+  if (digitAudio[d] != nullptr)
+    playAudio(digitAudio[d], digitAudioSize[d]);
+  else
+    playTest(digitFreq[d], 200);
+}
+
+void digitTask(void* parameter) {
+  if (audioPlaying) {
+    stopAudioFlag = true;
+    while (audioPlaying) vTaskDelay(10 / portTICK_PERIOD_MS);
+    stopAudioFlag = false;
+  }
+  for (int i = 0; i < digitQueueLen; i++) {
+    playDigit(digitQueue[i]);
+    vTaskDelay(50 / portTICK_PERIOD_MS);
+  }
+  digitQueueLen = 0;
+  digitTaskHandle = NULL;
+  vTaskDelete(NULL);
+}
+
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length){
   if(type==WStype_TEXT){
     String message = String((char*)(payload));
-    if(message=="START_GAME" && !gameStarted){
+    if(message.startsWith("CARD:") && gameStarted && digitTaskHandle == NULL){
+      String digits = message.substring(5);
+      digitQueueLen = 0;
+      for(int i = 0; i < (int)digits.length() && digitQueueLen < 20; i++){
+        char c = digits.charAt(i);
+        if(c >= '0' && c <= '9') digitQueue[digitQueueLen++] = c - '0';
+      }
+      if(digitQueueLen > 0)
+        xTaskCreatePinnedToCore(digitTask, "digits", 4096, NULL, 5, &digitTaskHandle, 0);
+    } else if(message=="START_GAME" && !gameStarted){
       score = 0;
       Serial.println("Game started from website");
       for(int i=0; i<3; i++){
@@ -140,7 +200,7 @@ void setup(){
       .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
       .dma_buf_count = 8,
       .dma_buf_len = 1024,
-      .use_apll = false
+      .use_apll = true
   };
 
   i2s_pin_config_t pin_config = {
